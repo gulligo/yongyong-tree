@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>용용이 나무</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.png">
+<meta name="theme-color" content="#2e7d32">
+<style>
+:root{--g:#2e7d32;--bg:#f4f7f1;--line:#e3e8df;--muted:#888}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:-apple-system,"Noto Sans KR",sans-serif;color:#222;font-size:15px}
+#app{max-width:560px;margin:0 auto;padding:12px 12px 80px}
+header{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+header img{width:40px;height:40px;border-radius:10px;object-fit:cover}
+header h1{font-size:20px;margin:0;flex:1}
+.ibtn{border:0;background:#fff;border-radius:10px;width:40px;height:40px;font-size:20px;box-shadow:0 1px 3px #0001}
+.box{background:#fff;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px #0001}
+.box h3{margin:0 0 8px;font-size:15px}
+.al{padding:8px 10px;border-radius:9px;margin:5px 0;font-size:14px}
+.red{background:#ffebee;color:#c62828}.yellow{background:#fff8e1;color:#e65100}
+.blue{background:#e3f2fd;color:#1565c0}.green{background:#e8f5e9;color:#2e7d32}
+.wx{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;font-size:13px}
+.wx div{background:var(--bg);border-radius:8px;padding:6px 2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px #0001;position:relative}
+.card .ph{width:100%;aspect-ratio:1;object-fit:cover;background:#e8f0e3;display:flex;align-items:center;justify-content:center;font-size:44px}
+.card .tx{padding:8px 10px}
+.card b{display:block}.card small{color:var(--muted)}
+.dot{position:absolute;top:8px;right:8px;background:#c62828;color:#fff;border-radius:12px;padding:2px 8px;font-size:12px}
+.btn{border:0;background:var(--g);color:#fff;border-radius:10px;padding:11px 14px;font-size:15px;font-weight:600}
+.btn.ghost{background:#eef3ea;color:var(--g)}
+.btn.full{width:100%;margin-top:10px}
+.btn.sm{padding:6px 10px;font-size:13px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0;padding-bottom:2px}
+.tabs button{flex:none;border:0;border-radius:20px;padding:8px 14px;background:#fff;font-size:14px}
+.tabs button.on{background:var(--g);color:#fff}
+.hero{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:14px}
+.care{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.care button{border:0;background:#fff;border-radius:12px;padding:10px 4px;box-shadow:0 1px 3px #0001;font-size:14px}
+.care button span{display:block;font-size:24px}
+.care button small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.care button.late small{color:#c62828;font-weight:700}
+.item{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border:0}
+.item .m{flex:1;min-width:0}
+.item .m p{margin:3px 0 0;white-space:pre-wrap;color:#444;font-size:14px}
+.item img{width:64px;height:64px;object-fit:cover;border-radius:8px}
+.x{border:0;background:none;color:#bbb;font-size:18px;padding:0 4px}
+.muted{color:var(--muted);font-size:13px}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;margin-left:4px}
+.chart{width:100%;height:auto}
+.modal{position:fixed;inset:0;background:#0006;display:flex;align-items:flex-end;justify-content:center;z-index:10}
+.sheet{background:#fff;width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:16px;max-height:90vh;overflow:auto}
+.sheet h3{margin:0 0 10px}
+.sheet label{display:block;font-size:13px;color:#555;margin-bottom:10px}
+.sheet input,.sheet select,.sheet textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid #ccd;border-radius:9px;font-size:16px;font-family:inherit}
+.row{display:flex;gap:8px}.row .btn{flex:1}
+.viewer{position:fixed;inset:0;background:#000e;display:flex;align-items:center;justify-content:center;z-index:20}
+.viewer img{max-width:100%;max-height:100%}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#333;color:#fff;padding:9px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;z-index:30}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+let CFG = JSON.parse(localStorage.getItem('yt_cfg') || '{}');
+if (!CFG.lat) { CFG.lat = 36.66; CFG.lon = 127.33; CFG.place = '청주 옥산면'; }
+let DB = { trees: [] };
+let V = { page: 'home', id: null, tab: 'care' };
+let WX = null;
+
+const CATS = {
+  water: { n: '물주기', i: '💧' }, fert: { n: '거름', i: '🌱' }, prune: { n: '가지치기', i: '✂️' },
+  spray: { n: '방역', i: '🛡️' }, winter: { n: '월동', i: '🧣' }, etc: { n: '기타', i: '➕' }
+};
+const DEFAULT_SCHED = [
+  { cat: 'prune', name: '겨울 가지치기', from: '01-15', to: '03-10' },
+  { cat: 'spray', name: '석회유황합제', from: '03-01', to: '03-25' },
+  { cat: 'fert', name: '밑거름', from: '03-01', to: '03-31' },
+  { cat: 'spray', name: '살균·살충제', from: '05-01', to: '05-31' },
+  { cat: 'fert', name: '웃거름', from: '06-01', to: '06-30' },
+  { cat: 'spray', name: '여름 방제', from: '07-01', to: '07-31' },
+  { cat: 'fert', name: '가을 거름', from: '10-01', to: '10-31' },
+  { cat: 'winter', name: '월동 준비', from: '11-10', to: '12-10' }
+];
+
+// ---------- 날짜 ----------
+const pad = n => String(n).padStart(2, '0');
+const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const today = () => fmt(new Date());
+const D = s => { const [a, b, c] = s.split('-').map(Number); return new Date(a, b - 1, c); };
+const diff = (a, b) => Math.round((D(b) - D(a)) / 864e5);
+const addDays = (s, n) => { const d = D(s); d.setDate(d.getDate() + n); return fmt(d); };
+const kdate = s => { const d = D(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const cur = () => DB.trees.find(t => t.id === V.id);
+const purl = n => `${CFG.api}/photo/${n}`;
+
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 1800); }
+
+// ---------- 저장 ----------
+async function save() {
+  localStorage.setItem('yt_db', JSON.stringify(DB));
+  render();
+  if (!CFG.api) return;
+  try {
+    const r = await fetch(CFG.api + '/data', { method: 'PUT', headers: { 'X-Key': CFG.key, 'Content-Type': 'application/json' }, body: JSON.stringify(DB) });
+    if (!r.ok) throw 0;
+    toast('저장됨');
+  } catch (e) { toast('⚠️ 서버 저장 실패 (폰에는 저장됨)'); }
+}
+async function load() {
+  const c = localStorage.getItem('yt_db');
+  if (c) DB = JSON.parse(c);
+  render();
+  if (!CFG.api) return;
+  try {
+    const r = await fetch(CFG.api + '/data', { headers: { 'X-Key': CFG.key } });
+    if (r.ok) { DB = await r.json(); DB.trees = DB.trees || []; localStorage.setItem('yt_db', JSON.stringify(DB)); render(); }
+    else toast('서버 연결 실패 ' + r.status);
+  } catch (e) { toast('서버 연결 실패'); }
+}
+async function compress(file) {
+  const img = await createImageBitmap(file);
+  const r = Math.min(1, 1280 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.82));
+}
+async function upPhoto(file) {
+  if (!file) return null;
+  if (!CFG.api) throw new Error('설정에서 Worker 주소를 먼저 입력하세요');
+  const blob = await compress(file);
+  const name = uid() + '.jpg';
+  const r = await fetch(`${CFG.api}/photo/${name}`, { method: 'PUT', headers: { 'X-Key': CFG.key, 'Content-Type': 'image/jpeg' }, body: blob });
+  if (!r.ok) throw new Error('사진 업로드 ' + r.status);
+  return name;
+}
+function delPhoto(n) { if (n && CFG.api) fetch(`${CFG.api}/photo/${n}`, { method: 'DELETE', headers: { 'X-Key': CFG.key } }).catch(() => {}); }
+
+// ---------- 알람 계산 ----------
+function windowFor(from, to) {
+  const t = today(), Y = +t.slice(0, 4);
+  for (const y of [Y - 1, Y, Y + 1]) {
+    const s = `${y}-${from}`, e = to >= from ? `${y}-${to}` : `${y + 1}-${to}`;
+    if (t >= addDays(s, -14) && t <= addDays(e, 30)) return [s, e];
+  }
+  return null;
+}
+function schedStatus(tr, sc) {
+  const w = windowFor(sc.from, sc.to);
+  if (!w) return { st: 'wait' };
+  const [s, e] = w, t = today();
+  const done = tr.logs.find(l => l.cat === sc.cat && l.date >= addDays(s, -7) && l.date <= e);
+  if (done) return { st: 'done', s, e, d: done.date };
+  if (t < s) return { st: 'soon', s, e, n: diff(t, s) };
+  if (t <= e) return { st: 'now', s, e, n: diff(t, e) };
+  return { st: 'miss', s, e };
+}
+const lastLog = (tr, cat) => tr.logs.filter(l => l.cat === cat).sort((a, b) => a.date < b.date ? 1 : -1)[0];
+function alertsOf(tr) {
+  const a = [], t = today();
+  if (+tr.waterDays > 0) {
+    const last = lastLog(tr, 'water'), base = last ? last.date : tr.planted;
+    if (base) { const n = diff(base, t); if (n > +tr.waterDays) a.push({ lv: 'red', msg: `💧 물 준 지 ${n}일` }); }
+  }
+  (tr.schedule || []).forEach(sc => {
+    const r = schedStatus(tr, sc), lab = `${CATS[sc.cat].i} ${esc(sc.name || CATS[sc.cat].n)}`;
+    if (r.st === 'miss') a.push({ lv: 'red', msg: `${lab} 안 함 (${kdate(r.e)}까지였음)` });
+    else if (r.st === 'now') a.push({ lv: 'yellow', msg: `${lab} 할 때 (${r.n}일 남음)` });
+    else if (r.st === 'soon') a.push({ lv: 'blue', msg: `${lab} ${r.n}일 뒤 시작` });
+  });
+  if (tr.harvestFrom && tr.harvestTo) {
+    const w = windowFor(tr.harvestFrom, tr.harvestTo);
+    if (w) { const [s, e] = w; if (t < s) a.push({ lv: 'blue', msg: `🍎 수확 ${diff(t, s)}일 뒤` }); else if (t <= e) a.push({ lv: 'green', msg: '🍎 수확 시기' }); }
+  }
+  return a;
+}
+async function loadWx() {
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${CFG.lat}&longitude=${CFG.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=Asia%2FSeoul&forecast_days=4`;
+    WX = (await (await fetch(u)).json()).daily;
+    render();
+  } catch (e) {}
+}
+function wxAlerts() {
+  if (!WX) return [];
+  const a = [], mins = WX.temperature_2m_min;
+  const i = mins.reduce((m, v, k) => v < mins[m] ? k : m, 0), mn = Math.round(mins[i]);
+  if (mn <= 0) a.push({ lv: 'red', msg: `🥶 ${kdate(WX.time[i])} 최저 ${mn}℃ 영하 — 어린 묘목 보온` });
+  else if (mn <= 3) a.push({ lv: 'yellow', msg: `❄️ ${kdate(WX.time[i])} 최저 ${mn}℃ 서리 주의` });
+  for (let k = 0; k < 2; k++) {
+    if ((WX.precipitation_probability_max[k] ?? 0) >= 60 || WX.precipitation_sum[k] >= 5) { a.push({ lv: 'yellow', msg: `☔ ${k ? '내일' : '오늘'} 비 예보 — 방역은 비 그친 뒤에` }); break; }
+  }
+  return a;
+}
+const LVORD = { red: 0, yellow: 1, blue: 2, green: 3 };
+
+// ---------- 화면 ----------
+function go(page, id, tab) { V = { page, id, tab: tab || 'care' }; history.pushState(V, ''); render(); scrollTo(0, 0); }
+function setTab(t) { V.tab = t; history.replaceState(V, ''); render(); }
+window.onpopstate = e => { V = e.state || { page: 'home' }; render(); };
+
+function render() {
+  const app = $('#app');
+  if (V.page === 'tree' && cur()) app.innerHTML = treePage(cur());
+  else if (V.page === 'settings') app.innerHTML = settingsPage();
+  else app.innerHTML = homePage();
+}
+
+function homePage() {
+  const all = [...wxAlerts()];
+  DB.trees.forEach(tr => alertsOf(tr).forEach(a => all.push({ ...a, msg: `<b>${esc(tr.name)}</b> ${a.msg}`, id: tr.id })));
+  all.sort((a, b) => LVORD[a.lv] - LVORD[b.lv]);
+  const wx = WX ? `<div class="box"><h3>🌤️ ${esc(CFG.place)} 날씨</h3><div class="wx">${WX.time.map((d, i) =>
+    `<div>${i ? kdate(d) : '오늘'}<br><b>${Math.round(WX.temperature_2m_max[i])}°</b> / ${Math.round(WX.temperature_2m_min[i])}°<br>☔${WX.precipitation_probability_max[i] ?? 0}%</div>`).join('')}</div></div>` : '';
+  return `<header><img src="icon-192.png" alt=""><h1>용용이 나무</h1><button class="ibtn" onclick="go('settings')">⚙️</button></header>
+  ${!CFG.api ? `<div class="al yellow">⚙️ 설정에서 Worker 주소와 키를 입력하세요</div>` : ''}
+  <div class="box"><h3>🔔 할 일</h3>${all.length ? all.map(a => `<div class="al ${a.lv}" ${a.id ? `onclick="go('tree','${a.id}','${a.msg.includes('🍎') ? 'harvest' : a.msg.includes('💧') ? 'care' : 'sched'}')"` : ''}>${a.msg}</div>`).join('') : '<div class="al green">✅ 지금 할 일 없음</div>'}</div>
+  ${wx}
+  <div class="grid">${DB.trees.map(tr => {
+    const reds = alertsOf(tr).filter(a => a.lv === 'red').length;
+    return `<div class="card" onclick="go('tree','${tr.id}')">${reds ? `<span class="dot">${reds}</span>` : ''}
+      ${tr.photo ? `<img class="ph" src="${purl(tr.photo)}" loading="lazy">` : '<div class="ph">🌳</div>'}
+      <div class="tx"><b>${esc(tr.name)} · ${tr.count}그루</b><small>${esc(tr.variety || '')} ${tr.planted ? diff(tr.planted, today()) + 1 + '일째' : ''}</small></div></div>`;
+  }).join('')}</div>
+  <button class="btn full" onclick="treeForm()">＋ 나무 추가</button>`;
+}
+
+function treePage(tr) {
+  const tabs = [['care', '관리'], ['sched', '일정'], ['growth', '성장'], ['harvest', '수확'], ['diary', '일기'], ['info', '정보']];
+  const al = alertsOf(tr).sort((a, b) => LVORD[a.lv] - LVORD[b.lv]);
+  return `<header><button class="ibtn" onclick="history.back()">←</button><h1>${esc(tr.name)}</h1></header>
+  ${tr.photo ? `<img class="hero" src="${purl(tr.photo)}" onclick="viewPhoto('${tr.photo}')">` : ''}
+  <p class="muted">${esc(tr.variety || '품종 미입력')} · ${tr.count}그루 · ${tr.planted ? `${tr.planted} 심음 (${diff(tr.planted, today()) + 1}일째)` : ''}</p>
+  ${al.map(a => `<div class="al ${a.lv}">${a.msg}</div>`).join('')}
+  <div class="tabs">${tabs.map(([k, n]) => `<button class="${V.tab === k ? 'on' : ''}" onclick="setTab('${k}')">${n}</button>`).join('')}</div>
+  ${({ care: careTab, sched: schedTab, growth: growthTab, harvest: harvestTab, diary: diaryTab, info: infoTab })[V.tab](tr)}`;
+}
+
+function careTab(tr) {
+  const t = today();
+  const btns = Object.entries(CATS).map(([k, c]) => {
+    const l = lastLog(tr, k), n = l ? diff(l.date, t) : null;
+    const late = k === 'water' && +tr.waterDays > 0 && n !== null && n > +tr.waterDays;
+    return `<button class="${late ? 'late' : ''}" onclick="addLog('${k}')"><span>${c.i}</span>${c.n}<small>${l ? (n ? n + '일 전' : '오늘') : '기록 없음'}</small></button>`;
+  }).join('');
+  const list = [...tr.logs].sort((a, b) => a.date < b.date ? 1 : -1);
+  return `<div class="care">${btns}</div>
+  <div class="box" style="margin-top:12px"><h3>관리 기록</h3>${list.length ? list.map(l => `<div class="item"><div class="m"><b>${CATS[l.cat].i} ${esc(l.cat === 'etc' ? l.name : CATS[l.cat].n)}</b> <span class="muted">${l.date}</span>
+    ${l.name && l.cat !== 'etc' ? `<p>${esc(l.name)}</p>` : ''}${l.memo ? `<p>${esc(l.memo)}</p>` : ''}</div><button class="x" onclick="delItem('logs','${l.id}')">✕</button></div>`).join('') : '<p class="muted">아직 기록이 없습니다</p>'}</div>`;
+}
+
+function schedTab(tr) {
+  const ST = { done: ['green', '완료'], now: ['yellow', '할 때'], soon: ['blue', '곧'], miss: ['red', '안 함'], wait: ['', '대기'] };
+  const list = [...(tr.schedule || [])].sort((a, b) => a.from < b.from ? -1 : 1);
+  return `<div class="box"><h3>📅 매년 반복 일정</h3><p class="muted">기간 안에 같은 종류(방역·거름 등) 기록이 있으면 완료, 기간이 지나도 없으면 빨간색으로 표시됩니다.</p>
+  ${list.length ? list.map(sc => { const r = schedStatus(tr, sc), [cl, nm] = ST[r.st];
+    return `<div class="item"><div class="m" onclick="schedForm('${sc.id}')"><b>${CATS[sc.cat].i} ${esc(sc.name || CATS[sc.cat].n)}</b><span class="tag ${cl}" style="${cl ? '' : 'background:#eee'}">${nm}</span>
+      <p class="muted">${+sc.from.slice(0, 2)}/${+sc.from.slice(3)} ~ ${+sc.to.slice(0, 2)}/${+sc.to.slice(3)}${r.d ? ` · ${kdate(r.d)} 함` : ''}</p></div><button class="x" onclick="delItem('schedule','${sc.id}')">✕</button></div>`; }).join('')
+    : `<p class="muted">일정이 없습니다.</p><button class="btn ghost full" onclick="addDefaultSched()">기본 과수 일정 넣기</button><p class="muted">일반적인 과수 기준이라 나무 종류에 맞게 고쳐 쓰세요.</p>`}
+  <button class="btn full" onclick="schedForm()">＋ 일정 추가</button></div>`;
+}
+
+function chart(g) {
+  const pts = g.filter(x => x.height !== '' && x.height != null).sort((a, b) => a.date < b.date ? -1 : 1);
+  if (pts.length < 2) return '<p class="muted">키 기록이 2개 이상이면 그래프가 나옵니다</p>';
+  const W = 320, H = 170, P = 26, t0 = D(pts[0].date), t1 = D(pts.at(-1).date);
+  const hs = pts.map(p => +p.height), mn = Math.min(...hs), mx = Math.max(...hs), span = (mx - mn) || 1;
+  const xy = pts.map(p => [P + (W - 2 * P) * ((D(p.date) - t0) / ((t1 - t0) || 1)), H - P - (H - 2 * P) * ((+p.height - mn) / span)]);
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart"><polyline fill="none" stroke="#2e7d32" stroke-width="2.5" points="${xy.map(a => a.join(',')).join(' ')}"/>
+  ${xy.map((a, i) => `<circle cx="${a[0]}" cy="${a[1]}" r="4" fill="#2e7d32"/><text x="${a[0]}" y="${a[1] - 8}" text-anchor="middle" font-size="10">${hs[i]}</text>`).join('')}
+  <text x="${P}" y="${H - 6}" font-size="10" fill="#888">${kdate(pts[0].date)}</text><text x="${W - P}" y="${H - 6}" font-size="10" fill="#888" text-anchor="end">${kdate(pts.at(-1).date)}</text></svg>`;
+}
+function growthTab(tr) {
+  const list = [...tr.growth].sort((a, b) => a.date < b.date ? 1 : -1);
+  return `<div class="box"><h3>📈 키 변화 (cm)</h3>${chart(tr.growth)}</div>
+  <div class="box"><h3>성장 기록</h3>${list.length ? list.map(g => `<div class="item">${g.photo ? `<img src="${purl(g.photo)}" loading="lazy" onclick="viewPhoto('${g.photo}')">` : ''}
+    <div class="m"><b>${g.date}</b>${g.height ? ` · ${g.height}cm` : ''}${g.memo ? `<p>${esc(g.memo)}</p>` : ''}</div><button class="x" onclick="delItem('growth','${g.id}')">✕</button></div>`).join('') : '<p class="muted">아직 기록이 없습니다</p>'}
+  <button class="btn full" onclick="growthForm()">＋ 사진·키 기록</button></div>`;
+}
+
+function harvestTab(tr) {
+  const y = today().slice(0, 4), sum = {};
+  tr.harvest.filter(h => h.date.startsWith(y)).forEach(h => sum[h.unit] = (sum[h.unit] || 0) + (+h.amount || 0));
+  const list = [...tr.harvest].sort((a, b) => a.date < b.date ? 1 : -1);
+  const per = tr.harvestFrom ? `<p class="muted">수확 시기: ${+tr.harvestFrom.slice(0, 2)}/${+tr.harvestFrom.slice(3)} ~ ${+tr.harvestTo.slice(0, 2)}/${+tr.harvestTo.slice(3)}</p>` : '<p class="muted">정보 탭에서 수확 시기를 넣으면 알람이 나옵니다</p>';
+  return `<div class="box"><h3>🍎 ${y}년 수확 합계</h3>${Object.keys(sum).length ? Object.entries(sum).map(([u, v]) => `<div class="al green"><b>${Math.round(v * 100) / 100} ${esc(u)}</b></div>`).join('') : '<p class="muted">올해 수확 기록 없음</p>'}${per}</div>
+  <div class="box"><h3>수확 기록</h3>${list.length ? list.map(h => `<div class="item"><div class="m"><b>${h.date}</b> · ${h.amount} ${esc(h.unit)}${h.memo ? `<p>${esc(h.memo)}</p>` : ''}</div><button class="x" onclick="delItem('harvest','${h.id}')">✕</button></div>`).join('') : '<p class="muted">아직 기록이 없습니다</p>'}
+  <button class="btn full" onclick="harvestForm()">＋ 수확 기록</button></div>`;
+}
+
+function diaryTab(tr) {
+  const list = [...tr.diary].sort((a, b) => a.date < b.date ? 1 : -1);
+  return `<div class="box"><h3>📔 일기</h3>${list.length ? list.map(d => `<div class="item">${d.photo ? `<img src="${purl(d.photo)}" loading="lazy" onclick="viewPhoto('${d.photo}')">` : ''}
+    <div class="m"><b>${d.date}</b><p>${esc(d.text)}</p></div><button class="x" onclick="delItem('diary','${d.id}')">✕</button></div>`).join('') : '<p class="muted">아직 일기가 없습니다</p>'}
+  <button class="btn full" onclick="diaryForm()">＋ 일기 쓰기</button></div>`;
+}
+
+function infoTab(tr) {
+  const hv = tr.harvestFrom ? `${+tr.harvestFrom.slice(0, 2)}/${+tr.harvestFrom.slice(3)} ~ ${+tr.harvestTo.slice(0, 2)}/${+tr.harvestTo.slice(3)}` : '미입력';
+  return `<div class="box"><h3>ℹ️ 정보</h3>
+  <div class="item"><div class="m">종류</div><b>${esc(tr.name)}</b></div>
+  <div class="item"><div class="m">품종</div><b>${esc(tr.variety || '-')}</b></div>
+  <div class="item"><div class="m">그루 수</div><b>${tr.count}</b></div>
+  <div class="item"><div class="m">심은 날</div><b>${tr.planted || '-'}</b></div>
+  <div class="item"><div class="m">물주기 알람</div><b>${+tr.waterDays ? tr.waterDays + '일 넘으면' : '끔'}</b></div>
+  <div class="item"><div class="m">수확 시기</div><b>${hv}</b></div>
+  <button class="btn full" onclick="treeForm('${tr.id}')">수정</button>
+  <button class="btn ghost full" style="color:#c62828" onclick="delTree()">이 나무 삭제</button></div>`;
+}
+
+function settingsPage() {
+  return `<header><button class="ibtn" onclick="history.back()">←</button><h1>설정</h1></header>
+  <div class="box"><h3>서버 (Cloudflare Worker)</h3>
+  <div class="sheet" style="padding:0;border-radius:0">
+  <label>Worker 주소<input id="s_api" value="${esc(CFG.api || '')}" placeholder="https://yongyong-tree-api.xxx.workers.dev"></label>
+  <label>키 (Worker의 KEY 값)<input id="s_key" type="password" value="${esc(CFG.key || '')}"></label>
+  <h3>날씨 위치</h3>
+  <label>이름<input id="s_place" value="${esc(CFG.place)}"></label>
+  <div class="row"><label style="flex:1">위도<input id="s_lat" inputmode="decimal" value="${CFG.lat}"></label><label style="flex:1">경도<input id="s_lon" inputmode="decimal" value="${CFG.lon}"></label></div>
+  <button class="btn ghost full" onclick="useGps()">📍 지금 위치로 (밭에서 누르세요)</button>
+  <button class="btn full" onclick="saveCfg()">저장</button></div></div>
+  <div class="box"><h3>백업</h3><button class="btn ghost full" onclick="exportJson()">데이터 파일로 내려받기</button></div>`;
+}
+
+// ---------- 동작 ----------
+function saveCfg() {
+  CFG = { api: $('#s_api').value.trim().replace(/\/$/, ''), key: $('#s_key').value.trim(), place: $('#s_place').value.trim() || '밭', lat: +$('#s_lat').value || 36.66, lon: +$('#s_lon').value || 127.33 };
+  localStorage.setItem('yt_cfg', JSON.stringify(CFG));
+  toast('설정 저장됨'); history.back(); load(); loadWx();
+}
+function useGps() {
+  navigator.geolocation.getCurrentPosition(p => { $('#s_lat').value = p.coords.latitude.toFixed(4); $('#s_lon').value = p.coords.longitude.toFixed(4); toast('위치 가져옴'); }, () => toast('위치 권한이 필요합니다'));
+}
+function exportJson() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' }));
+  a.download = `용용이나무_${today()}.json`; a.click();
+}
+function viewPhoto(n) {
+  const v = document.createElement('div'); v.className = 'viewer';
+  v.innerHTML = `<img src="${purl(n)}">`; v.onclick = () => v.remove(); document.body.appendChild(v);
+}
+
+function fieldHtml(f) {
+  const v = esc(f.value ?? '');
+  if (f.type === 'textarea') return `<label>${f.label}<textarea name="${f.k}" rows="5">${v}</textarea></label>`;
+  if (f.type === 'select') return `<label>${f.label}<select name="${f.k}">${f.options.map(([k, n]) => `<option value="${k}" ${k === f.value ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+  if (f.type === 'file') return `<label>${f.label}<input type="file" name="${f.k}" accept="image/*"></label>`;
+  return `<label>${f.label}<input type="${f.type || 'text'}" name="${f.k}" value="${v}" ${f.type === 'number' ? 'step="any" inputmode="decimal"' : ''} placeholder="${f.ph || ''}"></label>`;
+}
+function openForm(title, fields, onSave) {
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="sheet"><h3>${title}</h3>${fields.map(fieldHtml).join('')}<div class="row"><button class="btn ghost" data-x>취소</button><button class="btn" data-ok>저장</button></div></div>`;
+  document.body.appendChild(m);
+  m.querySelector('[data-x]').onclick = () => m.remove();
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  m.querySelector('[data-ok]').onclick = async () => {
+    const v = {};
+    for (const f of fields) { const el = m.querySelector(`[name="${f.k}"]`); v[f.k] = f.type === 'file' ? (el.files[0] || null) : el.value.trim(); }
+    if (fields.some(f => f.req && !v[f.k])) { toast('필수 항목을 입력하세요'); return; }
+    const b = m.querySelector('[data-ok]'); b.disabled = true; b.textContent = '저장 중…';
+    try { await onSave(v); m.remove(); } catch (e) { toast('실패: ' + e.message); b.disabled = false; b.textContent = '저장'; }
+  };
+}
+
+function treeForm(id) {
+  const tr = id ? DB.trees.find(t => t.id === id) : null, y = new Date().getFullYear(), md = m => m ? `${y}-${m}` : '';
+  openForm(tr ? '나무 정보 수정' : '나무 추가', [
+    { k: 'name', label: '종류 *', value: tr?.name, ph: '예: 사과나무', req: 1 },
+    { k: 'variety', label: '품종', value: tr?.variety, ph: '예: 부사' },
+    { k: 'count', label: '그루 수', type: 'number', value: tr?.count ?? 1 },
+    { k: 'planted', label: '심은 날', type: 'date', value: tr?.planted || today() },
+    { k: 'waterDays', label: '물주기 알람: 며칠 넘으면 빨간색 (0이면 끔)', type: 'number', value: tr?.waterDays ?? 7 },
+    { k: 'harvestFrom', label: '수확 시작 (연도는 상관없음)', type: 'date', value: md(tr?.harvestFrom) },
+    { k: 'harvestTo', label: '수확 끝', type: 'date', value: md(tr?.harvestTo) },
+    { k: 'photo', label: tr?.photo ? '대표 사진 (바꿀 때만)' : '대표 사진', type: 'file' }
+  ], async v => {
+    const ph = await upPhoto(v.photo);
+    const t = tr || { id: uid(), logs: [], growth: [], harvest: [], diary: [], schedule: [] };
+    Object.assign(t, { name: v.name, variety: v.variety, count: +v.count || 1, planted: v.planted, waterDays: +v.waterDays || 0,
+      harvestFrom: v.harvestFrom && v.harvestTo ? v.harvestFrom.slice(5) : '', harvestTo: v.harvestFrom && v.harvestTo ? v.harvestTo.slice(5) : '' });
+    if (ph) { delPhoto(t.photo); t.photo = ph; }
+    if (!tr) DB.trees.push(t);
+    await save();
+  });
+}
+async function delTree() {
+  const tr = cur();
+  if (!confirm(`${tr.name} 기록을 전부 삭제할까요?`)) return;
+  [tr.photo, ...tr.growth.map(g => g.photo), ...tr.diary.map(d => d.photo)].forEach(delPhoto);
+  DB.trees = DB.trees.filter(t => t.id !== tr.id);
+  history.back(); await save();
+}
+async function delItem(list, id) {
+  if (!confirm('삭제할까요?')) return;
+  const tr = cur(), it = tr[list].find(x => x.id === id);
+  if (it?.photo) delPhoto(it.photo);
+  tr[list] = tr[list].filter(x => x.id !== id);
+  await save();
+}
+function addLog(cat) {
+  const tr = cur(), c = CATS[cat];
+  const nameLabel = { spray: '약 이름', fert: '거름 종류', winter: '한 일', prune: '내용', water: '내용' }[cat];
+  openForm(`${c.i} ${c.n} 기록`, [
+    { k: 'date', label: '날짜', type: 'date', value: today() },
+    cat === 'etc' ? { k: 'name', label: '작업 이름 *', ph: '예: 제초, 지지대 설치', req: 1 } : { k: 'name', label: nameLabel },
+    { k: 'memo', label: '메모', type: 'textarea' }
+  ], async v => { tr.logs.push({ id: uid(), cat, date: v.date, name: v.name, memo: v.memo }); await save(); });
+}
+function schedForm(id) {
+  const tr = cur(), sc = id ? tr.schedule.find(s => s.id === id) : null, y = new Date().getFullYear();
+  openForm(sc ? '일정 수정' : '일정 추가', [
+    { k: 'cat', label: '종류', type: 'select', value: sc?.cat || 'spray', options: Object.entries(CATS).filter(([k]) => k !== 'water').map(([k, c]) => [k, c.i + ' ' + c.n]) },
+    { k: 'name', label: '이름 (약 이름 등)', value: sc?.name, ph: '예: 석회유황합제' },
+    { k: 'from', label: '시작 (매년 반복, 연도는 상관없음)', type: 'date', value: sc ? `${y}-${sc.from}` : today(), req: 1 },
+    { k: 'to', label: '끝', type: 'date', value: sc ? `${y}-${sc.to}` : addDays(today(), 14), req: 1 }
+  ], async v => {
+    const o = sc || { id: uid() };
+    Object.assign(o, { cat: v.cat, name: v.name, from: v.from.slice(5), to: v.to.slice(5) });
+    if (!sc) tr.schedule.push(o);
+    await save();
+  });
+}
+async function addDefaultSched() {
+  const tr = cur();
+  tr.schedule = DEFAULT_SCHED.map(s => ({ ...s, id: uid() }));
+  await save();
+}
+function growthForm() {
+  const tr = cur();
+  openForm('📈 사진·키 기록', [
+    { k: 'date', label: '날짜', type: 'date', value: today() },
+    { k: 'height', label: '키 (cm, 대표 한 그루)', type: 'number' },
+    { k: 'photo', label: '사진', type: 'file' },
+    { k: 'memo', label: '메모', type: 'textarea' }
+  ], async v => {
+    if (!v.height && !v.photo && !v.memo) throw new Error('키·사진·메모 중 하나는 넣으세요');
+    const ph = await upPhoto(v.photo);
+    tr.growth.push({ id: uid(), date: v.date, height: v.height, photo: ph, memo: v.memo });
+    await save();
+  });
+}
+function harvestForm() {
+  const tr = cur();
+  openForm('🍎 수확 기록', [
+    { k: 'date', label: '날짜', type: 'date', value: today() },
+    { k: 'amount', label: '양 *', type: 'number', req: 1 },
+    { k: 'unit', label: '단위', type: 'select', value: tr.harvest.at(-1)?.unit || 'kg', options: [['kg', 'kg'], ['개', '개'], ['박스', '박스'], ['봉지', '봉지']] },
+    { k: 'memo', label: '메모', type: 'textarea' }
+  ], async v => { tr.harvest.push({ id: uid(), date: v.date, amount: +v.amount, unit: v.unit, memo: v.memo }); await save(); });
+}
+function diaryForm() {
+  const tr = cur();
+  openForm('📔 일기 쓰기', [
+    { k: 'date', label: '날짜', type: 'date', value: today() },
+    { k: 'text', label: '내용 *', type: 'textarea', req: 1 },
+    { k: 'photo', label: '사진', type: 'file' }
+  ], async v => {
+    const ph = await upPhoto(v.photo);
+    tr.diary.push({ id: uid(), date: v.date, text: v.text, photo: ph });
+    await save();
+  });
+}
+
+history.replaceState(V, '');
+load();
+loadWx();
+</script>
+</body>
+</html>
