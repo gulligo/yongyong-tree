@@ -212,6 +212,7 @@ function render() {
   const app = $('#app');
   if (V.page === 'tree' && cur()) app.innerHTML = treePage(cur());
   else if (V.page === 'settings') app.innerHTML = settingsPage();
+  else if (V.page === 'memo') { app.innerHTML = memoPage(); memoList(); }
   else app.innerHTML = homePage();
 }
 
@@ -221,7 +222,7 @@ function homePage() {
   all.sort((a, b) => LVORD[a.lv] - LVORD[b.lv]);
   const wx = WX ? `<div class="box"><h3>🌤️ ${esc(CFG.place)} 날씨</h3><div class="wx">${WX.time.map((d, i) =>
     `<div>${i ? kdate(d) : '오늘'}<br><b>${Math.round(WX.temperature_2m_max[i])}°</b> / ${Math.round(WX.temperature_2m_min[i])}°<br>☔${WX.precipitation_probability_max[i] ?? 0}%</div>`).join('')}</div></div>` : '';
-  return `<header><img src="icon-192.png" alt=""><h1>용용이 나무</h1><button class="ibtn" onclick="go('settings')">⚙️</button></header>
+  return `<header><img src="icon-192.png" alt=""><h1>용용이 나무</h1><button class="ibtn" onclick="go('memo')">📝</button><button class="ibtn" onclick="go('settings')">⚙️</button></header>
   ${!CFG.api ? `<div class="al yellow">⚙️ 설정에서 Worker 주소와 키를 입력하세요</div>` : ''}
   <div class="box"><h3>🔔 할 일</h3>${all.length ? all.map(a => `<div class="al ${a.lv}" ${a.id ? `onclick="go('tree','${a.id}','${a.msg.includes('🍎') ? 'harvest' : a.msg.includes('💧') ? 'care' : 'sched'}')"` : ''}>${a.msg}</div>`).join('') : '<div class="al green">✅ 지금 할 일 없음</div>'}</div>
   ${wx}
@@ -315,6 +316,50 @@ function infoTab(tr) {
   <div class="item"><div class="m">수확 시기</div><b>${hv}</b></div>
   <button class="btn full" onclick="treeForm('${tr.id}')">수정</button>
   <button class="btn ghost full" style="color:#c62828" onclick="delTree()">이 나무 삭제</button></div>`;
+}
+
+// ---------- 나무 메모장 ----------
+let MQ = '';
+function memoPage() {
+  return `<header><button class="ibtn" onclick="history.back()">←</button><h1>📝 나무 메모</h1></header>
+  <div class="sheet" style="padding:0;background:none"><input id="mq" placeholder="🔍 검색" value="${esc(MQ)}" oninput="MQ=this.value;memoList()"></div>
+  <div class="box" id="mlist" style="margin-top:10px"></div>
+  <button class="btn full" onclick="memoForm()">＋ 메모 쓰기</button>`;
+}
+function memoList() {
+  const q = MQ.trim().toLowerCase();
+  const list = (DB.memos || []).filter(m => !q || ((m.title || '') + ' ' + m.text).toLowerCase().includes(q))
+    .sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || (a.date < b.date ? 1 : -1));
+  $('#mlist').innerHTML = list.length ? list.map(m => `<div class="item">
+    ${m.photo ? `<img src="${purl(m.photo)}" loading="lazy" onclick="viewPhoto('${m.photo}')">` : ''}
+    <div class="m" onclick="memoForm('${m.id}')"><b>${m.pin ? '📌 ' : ''}${esc(m.title || '(제목 없음)')}</b> <span class="muted">${m.date}</span><p>${esc(m.text)}</p></div>
+    <div><button class="x" style="opacity:${m.pin ? 1 : .35}" onclick="pinMemo('${m.id}')">📌</button><br><button class="x" onclick="delMemo('${m.id}')">✕</button></div></div>`).join('')
+    : `<p class="muted">${q ? '검색 결과가 없습니다' : '아직 메모가 없습니다'}</p>`;
+}
+function memoForm(id) {
+  DB.memos = DB.memos || [];
+  const m = id ? DB.memos.find(x => x.id === id) : null;
+  openForm(m ? '메모 수정' : '메모 쓰기', [
+    { k: 'date', label: '날짜', type: 'date', value: m?.date || today() },
+    { k: 'title', label: '제목', value: m?.title, ph: '예: 농약사 연락처' },
+    { k: 'text', label: '내용 *', type: 'textarea', value: m?.text, req: 1 },
+    { k: 'photo', label: m?.photo ? '사진 (바꿀 때만)' : '사진', type: 'file' }
+  ], async v => {
+    const ph = await upPhoto(v.photo);
+    const o = m || { id: uid(), pin: false };
+    Object.assign(o, { date: v.date, title: v.title, text: v.text });
+    if (ph) { delPhoto(o.photo); o.photo = ph; }
+    if (!m) DB.memos.push(o);
+    await save();
+  });
+}
+async function pinMemo(id) { const m = DB.memos.find(x => x.id === id); m.pin = !m.pin; await save(); }
+async function delMemo(id) {
+  if (!confirm('메모를 삭제할까요?')) return;
+  const m = DB.memos.find(x => x.id === id);
+  if (m?.photo) delPhoto(m.photo);
+  DB.memos = DB.memos.filter(x => x.id !== id);
+  await save();
 }
 
 function settingsPage() {
